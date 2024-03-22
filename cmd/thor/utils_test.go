@@ -67,7 +67,8 @@ func Test_handleExitSignal(t *testing.T) {
 	// Simulate sending a SIGTERM signal
 	go func() {
 		time.Sleep(100 * time.Millisecond) // Wait a bit to ensure the signal handling goroutine is listening
-		syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+		err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+		assert.NoError(t, err)
 	}()
 
 	// Wait for the context to be cancelled or timeout
@@ -275,7 +276,8 @@ func TestSelectGenesis(t *testing.T) {
 
 		_, err = file.WriteString("{invalidJson:}")
 		assert.NoError(t, err)
-		file.Close()
+		err = file.Close()
+		assert.NoError(t, err)
 
 		defer os.Remove(file.Name())
 
@@ -566,4 +568,31 @@ func Test_newP2PComm(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, p2pComm)
 	})
+}
+
+func TestP2pComm_Start(t *testing.T) {
+	app := cli.NewApp()
+	set := flag.NewFlagSet("test", 0)
+	set.String(configDirFlag.Name, "", "doc")
+	set.String(natFlag.Name, "any", "doc")
+	set.Int(maxPeersFlag.Name, 25, "doc")
+	set.Int(p2pPortFlag.Name, 30303, "doc")
+	ctx := cli.NewContext(app, set, nil)
+
+	gene := genesis.NewTestnet()
+	mainDB := openMemMainDB()
+	logDB := openMemLogDB()
+
+	repo, _ := initChainRepository(gene, mainDB, logDB)
+
+	txpoolOpt := defaultTxPoolOptions
+	txPool := txpool.New(repo, state.NewStater(mainDB), txpoolOpt)
+
+	_ = set.Set(configDirFlag.Name, t.TempDir())
+	p2pComm, _ := newP2PComm(ctx, repo, txPool, t.TempDir())
+
+	err := p2pComm.Start()
+	defer p2pComm.Stop()
+
+	assert.NoError(t, err)
 }
