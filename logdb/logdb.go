@@ -196,7 +196,7 @@ FROM (%v) t
 		subQuery += ")"
 	}
 
-	subQuery = "SELECT e.* FROM (" + subQuery + ") s JOIN transfer e ON s.seq = e.seq"
+	subQuery = "SELECT e.* FROM (" + subQuery + ") s LEFT JOIN transfer e ON s.seq = e.seq"
 	finalQuery := fmt.Sprintf(query, subQuery)
 
 	if filter.Order == DESC {
